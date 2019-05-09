@@ -24,6 +24,25 @@ use yii\base\InvalidArgumentException;
  * Site controller
  */
 class SiteController extends Controller {
+
+    public function behaviors(){
+        $behaviors = parent::behaviors();
+        return [
+            [
+                'class' => 'yii\filters\ContentNegotiator',
+                'only' => ['create', 'index', 'update'],
+            ],
+            'corsFilter' => [
+                'class' => \yii\filters\Cors::className(),
+                'cors' => [
+                    'Origin' => ['*'],
+                    'Access-Control-Request-Method' => ['GET', 'POST', 'PUT', 'OPTIONS'],
+                    'Access-Control-Request-Headers' => ['*'],
+                ],
+            ],
+        ];
+    }
+    
     /**
      * Displays homepage.
      *
