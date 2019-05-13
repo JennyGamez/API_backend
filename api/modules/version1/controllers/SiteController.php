@@ -2,30 +2,27 @@
 
 namespace api\modules\version1\controllers;
 
-use Yii;
-use common\models\LoginForm;
-use common\models\User;
-use api\models\ResendVerificationEmailForm;
-use api\models\VerifyEmailForm;
+use api\components\HelperEncrypt;
 use api\models\PasswordResetRequestForm;
+use api\models\ResendVerificationEmailForm;
 use api\models\ResetPasswordForm;
 use api\models\SignupForm;
-use api\models\ContactForm;
-use api\controllers\BaseController;
+use api\models\VerifyEmailForm;
+use common\models\LoginForm;
+use common\models\User;
+use Yii;
+use yii\base\InvalidArgumentException;
 use yii\web\BadRequestHttpException;
 use yii\web\Controller;
-use yii\filters\auth\CompositeAuth;
-use yii\filters\auth\HttpBasicAuth;
-use yii\filters\auth\HttpBearerAuth;
-use yii\filters\auth\QueryParamAuth;
-use yii\base\InvalidArgumentException;
 
 /**
  * Site controller
  */
-class SiteController extends Controller {
+class SiteController extends Controller
+{
 
-    public function behaviors(){
+    public function behaviors()
+    {
         $behaviors = parent::behaviors();
         return [
             [
@@ -42,13 +39,14 @@ class SiteController extends Controller {
             ],
         ];
     }
-    
+
     /**
      * Displays homepage.
      *
      * @return mixed
      */
-    public function actionIndex() {
+    public function actionIndex()
+    {
         $json = Yii::$app->request->post('jsonSend');
         $data = json_decode($json, true);
 
@@ -67,7 +65,8 @@ class SiteController extends Controller {
      *
      * @return mixed
      */
-    public function actionLogin() {
+    public function actionLogin()
+    {
         $json = Yii::$app->request->post('jsonSend');
         $data = json_decode($json, true);
 
@@ -91,41 +90,11 @@ class SiteController extends Controller {
      *
      * @return mixed
      */
-    public function actionLogout() {
+    public function actionLogout()
+    {
         Yii::$app->user->logout();
 
         return $this->goHome();
-    }
-
-    /**
-     * Displays contact page.
-     *
-     * @return mixed
-     */
-    public function actionContact() {
-        $model = new ContactForm();
-        if ($model->load(Yii::$app->request->post()) && $model->validate()) {
-            if ($model->sendEmail(Yii::$app->params['adminEmail'])) {
-                Yii::$app->session->setFlash('success', 'Thank you for contacting us. We will respond to you as soon as possible.');
-            } else {
-                Yii::$app->session->setFlash('error', 'There was an error sending your message.');
-            }
-
-            return $this->refresh();
-        } else {
-            return $this->render('contact', [
-                        'model' => $model,
-            ]);
-        }
-    }
-
-    /**
-     * Displays about page.
-     *
-     * @return mixed
-     */
-    public function actionAbout() {
-        return $this->render('about');
     }
 
     /**
@@ -133,10 +102,11 @@ class SiteController extends Controller {
      *
      * @return mixed
      */
-    public function actionSignup() {
+    public function actionSignup()
+    {
         $json = Yii::$app->request->post('jsonSend');
         $data = json_decode($json, true);
-        
+
         $model = new SignupForm();
         if ($model->load(Yii::$app->request->post()) && $model->signup()) {
             Yii::$app->session->setFlash('success', 'Thank you for registration. Please check your inbox for verification email.');
@@ -144,7 +114,7 @@ class SiteController extends Controller {
         }
 
         return $this->render('signup', [
-                    'model' => $model,
+            'model' => $model,
         ]);
     }
 
@@ -153,29 +123,31 @@ class SiteController extends Controller {
      *
      * @return mixed
      */
-    public function actionRequestPasswordReset() {
+    public function actionRequestPasswordReset()
+    {
         $json = Yii::$app->request->post('jsonSend');
-        $data = json_decode($json, true);
-
         $model = new PasswordResetRequestForm();
-        $model->attributes = $data;
 
-        if ($model->validate()) {
-            if ($model->sendEmail()) {
-                $status = true;
-                $validaciones = '';
-                $mensaje = 'Revise su correo electrónico para obtener más instrucciones.';
+        if (isset($json) && $json != '') {
+            $data = json_decode($json, true);
+            $model->attributes = $data;
+
+            if ($model->validate()) {
+                if ($model->sendEmail()) {
+                    $mensaje = 'Se envio una notificación a la dirección de correo electrónico ' . $model->email . ', con las instrucciones.';
+                    return array('status' => true, 'data' => $model->attributes, 'message' => $mensaje);
+                } else {
+                    $mensaje = 'Lo sentimos, no podemos restablecer la contraseña de la dirección de correo electrónico ' . $model->email . '.';
+                    return array('status' => false, 'data' => $model->getErrors(), 'message' => $mensaje);
+                }
             } else {
-                $status = false;
-                $validaciones = $model->getErrors(); 
-                $mensaje = 'Lo sentimos, no podemos restablecer la contraseña de la dirección de correo electrónico.';
+                $mensaje = 'Lo sentimos, la dirección de correo electrónico ' . $model->email . ', no tiene formato correcto.';
+                return array('status' => false, 'data' => $model->getErrors(), 'message' => $mensaje);
             }
-        }else{
-            $status = false;
-            $validaciones = $model->getErrors(); 
-            $mensaje = 'Lo sentimos, no llego el correo';
+        } else {
+            $mensaje = 'No se recibió ninguna dirección de correo electrónico.';
+            return array('status' => false, 'data' => $model->getErrors(), 'message' => $mensaje);
         }
-        return array('status' => $status, 'data' => $validaciones, 'mensaje' => $mensaje);
     }
 
     /**
@@ -185,28 +157,50 @@ class SiteController extends Controller {
      * @return mixed
      * @throws BadRequestHttpException
      */
-    public function actionResetPassword($token) {
+    public function actionResetPassword($params){
+
+        $token = HelperEncrypt::decrypt($params);
+        $json = Yii::$app->request->post('jsonSend');
+
         try {
             $model = new ResetPasswordForm($token);
-            $status = true;
-            $validaciones = $model->getErrors();
-            $mensaje = 'valido';
+            $data = json_decode($json, true);
+            $model->attributes = $data;
+            
+            $mensaje = 'Token validado';
+            return array('status' => true, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
 
         } catch (InvalidArgumentException $e) {
             throw new BadRequestHttpException($e->getMessage());
-            $status = false;
-            $validaciones = $e->getMessage();
             $mensaje = 'Token no valido';
-
+            return array('status' => false, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
         }
+
         if ($model->validate()) {
-            $validaciones = '';
-            $status = true;
-            $mensaje ='New password saved.';
+            $model->resetPassword();
+            $mensaje = 'Se guardo correctamente la contraseña.';
+            return array('status' => true, 'data' => $model->validate(), 'mensaje' => $mensaje);
+        } else {
+            $mensaje = 'Error con la información suministrada.';
+            return array('status' => false, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
         }
-
-        return array('status' => $status, 'data' => $validaciones, 'mensaje' => $model->attributes);
     }
+
+    /*public function actionValidateToken($params){
+
+        $token = HelperEncrypt::decrypt($params);
+
+        try {
+            $model = new ResetPasswordForm($token);
+            $mensaje = 'Token validado';
+            return array('status' => true, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
+
+        } catch (InvalidArgumentException $e) {
+            throw new BadRequestHttpException($e->getMessage());
+            $mensaje = 'Token no valido';
+            return array('status' => false, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
+        }
+    }*/
 
     /**
      * Verify email address
@@ -215,7 +209,8 @@ class SiteController extends Controller {
      * @throws BadRequestHttpException
      * @return yii\web\Response
      */
-    public function actionVerifyEmail($token) {
+    public function actionVerifyEmail($token)
+    {
         try {
             $model = new VerifyEmailForm($token);
         } catch (InvalidArgumentException $e) {
@@ -237,7 +232,8 @@ class SiteController extends Controller {
      *
      * @return mixed
      */
-    public function actionResendVerificationEmail() {
+    public function actionResendVerificationEmail()
+    {
         $model = new ResendVerificationEmailForm();
         if ($model->load(Yii::$app->request->post()) && $model->validate()) {
             if ($model->sendEmail()) {
@@ -248,7 +244,7 @@ class SiteController extends Controller {
         }
 
         return $this->render('resendVerificationEmail', [
-                    'model' => $model
+            'model' => $model,
         ]);
     }
 
