@@ -157,50 +157,54 @@ class SiteController extends Controller
      * @return mixed
      * @throws BadRequestHttpException
      */
-    public function actionResetPassword($params){
-
-        $token = HelperEncrypt::decrypt($params);
+    public function actionResetPassword(){
         $json = Yii::$app->request->post('jsonSend');
+        $data = json_decode($json, true);
 
-        try {
-            $model = new ResetPasswordForm($token);
-            $data = json_decode($json, true);
-            $model->attributes = $data;
-            
-            $mensaje = 'Token validado';
-            return array('status' => true, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
+        $token = HelperEncrypt::decrypt($data['token']);
+        $password = $data['password'];
 
-        } catch (InvalidArgumentException $e) {
-            throw new BadRequestHttpException($e->getMessage());
-            $mensaje = 'Token no valido';
-            return array('status' => false, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
-        }
+        if($password != ''){
+            $model = User::findOne(['password_reset_token' => $token,'status' => User::STATUS_ACTIVE,]);
+            $model->setPassword($password);
+            $model->removePasswordResetToken();
 
-        if ($model->validate()) {
-            $model->resetPassword();
-            $mensaje = 'Se guardo correctamente la contraseña.';
-            return array('status' => true, 'data' => $model->validate(), 'mensaje' => $mensaje);
+            if($model->save()){
+                $mensaje = 'Se guardo correctamente la contraseña.';
+                return array('status' => true, 'data' => $model->save(), 'message' => $mensaje);
+            }else{
+                $mensaje = 'No guardo';
+                return array('status' => false, 'data' => $model->getErrors(), 'message' => $mensaje);
+            }            
         } else {
             $mensaje = 'Error con la información suministrada.';
-            return array('status' => false, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
+            return array('status' => false, 'data' => $model->getErrors(), 'message' => '----');
         }
     }
 
-    /*public function actionValidateToken($params){
+    public function actionValidateTokenPassword(){
 
-        $token = HelperEncrypt::decrypt($params);
+        $json = Yii::$app->request->post('jsonSend');
+        $data = json_decode($json, true);
+        $token = HelperEncrypt::decrypt($data);
 
-        try {
-            $model = new ResetPasswordForm($token);
-            $mensaje = 'Token validado';
-            return array('status' => true, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
+        if ($token == true) {
+            try {
+                $model = new ResetPasswordForm($token);
+                $mensaje = 'Token validado';
+                return array('status' => true, 'data' => $token, 'message' => $model);
 
-        } catch (InvalidArgumentException $e) {
-            throw new BadRequestHttpException($e->getMessage());
+            } catch (InvalidArgumentException $e) {
+                throw new BadRequestHttpException($e->getMessage());
+                $mensaje = 'Token no valido';
+                return array('status' => false, 'data' => $e->getMessage(), 'message' => $mensaje);
+            }
+        } else {
             $mensaje = 'Token no valido';
-            return array('status' => false, 'data' => $model->getErrors(), 'mensaje' => $mensaje);
+            return array('status' => false, 'data' => $data, 'message' => $mensaje);
         }
-    }*/
+
+    }
 
     /**
      * Verify email address

@@ -59,7 +59,8 @@ class PasswordResetRequestForm extends Model{
                 'headMailText' => "Estimado usuario ",
                 'textBody' => "Por favor haga clic en el botón restablecer, será llevado a un formulario donde podrá registrar una nueva contraseña y continuar utilizando la aplicación",
                 'bodyMail' => 'passwordResetToken-html',
-                'link' => Yii::$app->urlManager->createAbsoluteUrl(['version1/site/reset-password', 'params' => $this->encrypt($user->password_reset_token)]),
+                'link' => 'localhost:4200/resettokenpass/'.$this->encrypt($user->password_reset_token),
+                //'link' => Yii::$app->urlManager->createAbsoluteUrl(['localhost:4200/resettokenpass/', 'params' => $this->encrypt($user->password_reset_token)]),
             ]
         )
             ->setTo($this->email)

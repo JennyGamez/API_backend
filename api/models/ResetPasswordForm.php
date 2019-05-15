@@ -31,7 +31,7 @@ class ResetPasswordForm extends Model {
         }
         $this->_user = User::findByPasswordResetToken($token);
         if (!$this->_user) {
-            throw new InvalidArgumentException('Token de restablecimiento de contraseña incorrecto.');
+            throw new InvalidArgumentException('Token de restablecimiento de contraseña incorrecto.'.'--'.json_encode($this->_user).'** '.$token);
         }
         parent::__construct($config);
     }

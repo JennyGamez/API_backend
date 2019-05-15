@@ -1,5 +1,6 @@
 <?php
 return [
+    'name' => 'Entrégalo.co',
     'components' => [
         'db' => [
             'class' => 'yii\db\Connection',
